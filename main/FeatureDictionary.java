@@ -2,8 +2,11 @@ package main;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +18,7 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.log4j.Logger;
 
 import dictionary.Alphabet;
 import edu.berkeley.nlp.syntax.Constituent;
@@ -38,6 +42,9 @@ public class FeatureDictionary {
 	private static String corpusRootDirectory;
 	private static int threshHoldCount;
 	private static String dictionaryWritePath;
+	private static int nullTreeCounts;
+
+	final static Logger logger = Logger.getLogger(FeatureDictionary.class);
 
 	static {
 
@@ -70,10 +77,15 @@ public class FeatureDictionary {
 	public static void main(String... args) {
 
 		parse(args);
+
+		logger.info("FEATURE EXTRACTION FOR NON TERMINAL: " + nonTerminal);
+		long programStartTime = System.currentTimeMillis() / 60000;
+		logger.info("START TIME: " + nonTerminal + " IS " + programStartTime);
 		Thread updateInsideFeatureDict = null;
 		Thread updateOutsideFeatureDict = null;
 
 		List<String> treeFiles = CommonUtil.getTreeFilePaths(corpusRootDirectory, numOfTrees);
+		logger.info("++ NUMBER OF TREE FILES:  " + treeFiles.size());
 
 		for (String treeFile : treeFiles) {
 			PennTreeReader treeParser = null;
@@ -93,6 +105,8 @@ public class FeatureDictionary {
 					treeNodeItr = getTreeNodeIterator(tree);
 					constituentsMap = tree.getConstituents();
 
+				} else {
+					nullTreeCounts++;
 				}
 
 				while (treeNodeItr != null && treeNodeItr.hasNext()) {
@@ -141,6 +155,9 @@ public class FeatureDictionary {
 
 				}
 			}
+			if (nullTreeCounts > 0)
+				logger.info("NULL TREES FOR FILE: " + treeFile + " ARE " + Integer.toString(nullTreeCounts) + " NT: "
+						+ nonTerminal);
 		}
 
 		insideFeatures.stopGrowth();
@@ -148,6 +165,64 @@ public class FeatureDictionary {
 
 		filterFeatureDictionaries();
 		writeDictionariesToDisk();
+		writeDictionaryObjectsToDisk();
+
+		long endTime = System.currentTimeMillis() / 60000;
+		logger.info(
+				"END TIME FOR: " + nonTerminal + " IS " + endTime + " DURATION IS: " + (endTime - programStartTime));
+
+	}
+
+	private static void writeDictionaryObjectsToDisk() {
+		Thread t1 = new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				ObjectOutputStream os = null;
+				FileOutputStream fos = null;
+
+				try {
+					fos = new FileOutputStream(
+							new File(dictionaryWritePath + "/" + nonTerminal + "/" + nonTerminal + "dictin.ser"));
+					os = new ObjectOutputStream(fos);
+					os.writeObject(filteredInsideFeatures);
+
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
+			}
+		});
+
+		t1.start();
+
+		Thread t2 = new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				ObjectOutputStream os = null;
+				FileOutputStream fos = null;
+				try {
+					fos = new FileOutputStream(
+							new File(dictionaryWritePath + "/" + nonTerminal + "/" + nonTerminal + "dictout.ser"));
+					os = new ObjectOutputStream(fos);
+					os.writeObject(filteredOutsideFeatures);
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		});
+
+		t2.start();
+
+		try {
+			t1.join();
+			t2.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 
 	}
 
@@ -157,6 +232,8 @@ public class FeatureDictionary {
 			@Override
 			public void run() {
 				BufferedWriter bw = null;
+				logger.info(
+						"INSIDE FEATURE DICTIONARY SIZE FOR " + nonTerminal + " IS " + filteredInsideFeatures.size());
 				for (Object obj : filteredInsideFeatures.map.keys()) {
 					String feature = (String) obj;
 					File dictionaryDir = new File(dictionaryWritePath + "/" + nonTerminal);
@@ -164,8 +241,7 @@ public class FeatureDictionary {
 						dictionaryDir.mkdirs();
 					}
 					try {
-						bw = new BufferedWriter(new FileWriter(
-								dictionaryDir + "/" + nonTerminal.toLowerCase() + "inside_features_dict.txt", true));
+						bw = new BufferedWriter(new FileWriter(dictionaryDir + "/" + nonTerminal + "dictin.txt", true));
 						bw.write(feature + "\t" + filteredInsideFeatures.countMap.get(feature) + "\n");
 						bw.close();
 					} catch (IOException e) {
@@ -184,6 +260,7 @@ public class FeatureDictionary {
 			@Override
 			public void run() {
 				BufferedWriter bw = null;
+				logger.info("OUTSIDE FEATURE DICT SIZE FOR " + nonTerminal + " IS " + filteredOutsideFeatures.size());
 				for (Object obj : filteredOutsideFeatures.map.keys()) {
 					String feature = (String) obj;
 					File dictionaryDir = new File(dictionaryWritePath + "/" + nonTerminal);
@@ -191,8 +268,8 @@ public class FeatureDictionary {
 						dictionaryDir.mkdirs();
 					}
 					try {
-						bw = new BufferedWriter(new FileWriter(
-								dictionaryDir + "/" + nonTerminal.toLowerCase() + "outside_features_dict.txt", true));
+						bw = new BufferedWriter(
+								new FileWriter(dictionaryDir + "/" + nonTerminal + "dictout.txt", true));
 						bw.write(feature + "\t" + filteredOutsideFeatures.countMap.get(feature) + "\n");
 						bw.close();
 					} catch (IOException e) {
