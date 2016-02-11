@@ -313,14 +313,14 @@ public class FeatureDictionary {
 		return tree.iterator();
 	}
 
-	private synchronized static void updateOutsideFeatureDict(List<String> outsideFeatureList) {
+	private static void updateOutsideFeatureDict(List<String> outsideFeatureList) {
 		for (String feature : outsideFeatureList) {
 			outsideFeatures.lookupIndex(feature);
 		}
 
 	}
 
-	private synchronized static void updateInsideFeatureDict(List<String> insideFeatureList) {
+	private static void updateInsideFeatureDict(List<String> insideFeatureList) {
 		for (String feature : insideFeatureList) {
 			if (!feature.equalsIgnoreCase("notvalid")) {
 				insideFeatures.lookupIndex(feature);
