@@ -4,10 +4,11 @@ import java.util.Stack;
 
 import edu.berkeley.nlp.syntax.Tree;
 import interfaces.OutsideFeature;
+import superclass.VSMThesis;
 import utils.AbstractHeadFinder;
 import utils.PennTreebankCollinsHeadFinder;
 
-public class OutsideOtherheadposAbove implements OutsideFeature {
+public class OutsideOtherheadposAbove extends VSMThesis implements OutsideFeature {
 
 	/**
 	 * For description see the interface description TODO

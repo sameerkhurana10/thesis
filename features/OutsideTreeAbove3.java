@@ -4,9 +4,10 @@ import java.util.Stack;
 
 import edu.berkeley.nlp.syntax.Tree;
 import interfaces.OutsideFeature;
+import superclass.VSMThesis;
 import utils.CommonUtil;
 
-public class OutsideTreeAbove3 implements OutsideFeature {
+public class OutsideTreeAbove3 extends VSMThesis implements OutsideFeature {
 
 	/**
 	 * For description see the interface description

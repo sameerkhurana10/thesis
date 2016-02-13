@@ -4,8 +4,9 @@ import java.util.Stack;
 
 import edu.berkeley.nlp.syntax.Tree;
 import interfaces.OutsideFeature;
+import superclass.VSMThesis;
 
-public class OutsideFootNumwordsleft implements OutsideFeature {
+public class OutsideFootNumwordsleft extends VSMThesis implements OutsideFeature {
 
 	public static int outsideWordsLeft;
 

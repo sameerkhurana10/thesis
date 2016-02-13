@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -75,6 +76,7 @@ import no.uib.cipr.matrix.Vector;
 import no.uib.cipr.matrix.VectorEntry;
 import no.uib.cipr.matrix.sparse.FlexCompRowMatrix;
 import no.uib.cipr.matrix.sparse.SparseVector;
+import superclass.VSMThesis;
 import weka.core.Stopwords;
 
 /**
@@ -84,7 +86,7 @@ import weka.core.Stopwords;
  *
  */
 
-public class CommonUtil {
+public class CommonUtil extends VSMThesis {
 
 	private static ArrayList<File> filePaths = new ArrayList<File>();
 	private static int fileNum;
@@ -144,13 +146,44 @@ public class CommonUtil {
 
 	public static List<String> getOutsideFeatures(Stack<Tree<String>> footToRoot) {
 
-		List<String> features = Arrays.asList(new OutsideFootNumwordsleft().getFeature(footToRoot),
-				new OutsideFootNumwordsright().getFeature(footToRoot), new OutsideFootParent().getFeature(footToRoot),
-				new OutsideFootParentGrandParent().getFeature(footToRoot),
-				new OutsideOtherheadposAbove().getFeature(footToRoot), new OutsideTreeabove1().getFeature(footToRoot),
-				new OutsideTreeAbove2().getFeature(footToRoot), new OutsideTreeAbove3().getFeature(footToRoot));
+		String outsideFootNumwordsleft = new OutsideFootNumwordsleft().getFeature(footToRoot);
+		String outsideFootNumwordsright = new OutsideFootNumwordsright().getFeature(footToRoot);
+		String outsideFootParentGrandParent = new OutsideFootParentGrandParent().getFeature(footToRoot);
+		String outsideOtherheadposAbove = new OutsideOtherheadposAbove().getFeature(footToRoot);
+		String outsideFootParent = new OutsideFootParent().getFeature(footToRoot);
+		String outsideTreeabove1 = new OutsideTreeabove1().getFeature(footToRoot);
+		// String outsideTreeAbove2 = new
+		// OutsideTreeAbove2().getFeature(footToRoot);
+		String outsideTreeAbove3 = new OutsideTreeAbove3().getFeature(footToRoot);
+
+		List<String> features = new LinkedList<String>();
+
+		if (isValid(outsideFootNumwordsleft))
+			features.add(outsideFootNumwordsleft);
+		if (isValid(outsideFootNumwordsright))
+			features.add(outsideFootNumwordsright);
+		if (isValid(outsideFootParentGrandParent))
+			features.add(outsideFootParentGrandParent);
+		if (isValid(outsideOtherheadposAbove))
+			features.add(outsideOtherheadposAbove);
+		if (isValid(outsideFootParent))
+			features.add(outsideFootParent);
+		if (isValid(outsideTreeabove1))
+			features.add(outsideTreeabove1);
+		// if (isValid(outsideTreeAbove2))
+		// features.add(outsideTreeAbove2);
+		if (isValid(outsideTreeAbove3))
+			features.add(outsideTreeAbove3);
 
 		return features;
+	}
+
+	public static boolean isValid(String feature) {
+		boolean validity = true;
+		if (feature.equalsIgnoreCase("NOTVALID"))
+			validity = false;
+
+		return validity;
 	}
 
 	/**
