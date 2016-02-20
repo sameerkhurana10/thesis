@@ -2707,8 +2707,8 @@ public class CommonUtil extends VSMThesis {
 	 * @param numOfTrees
 	 * @return
 	 */
-	public static ArrayList<String> getTreeFilePaths(String treeCorpusRoot, String numOfTrees) {
-		ArrayList<String> treeFilePaths = new ArrayList<String>();
+	public static LinkedList<String> getTreeFilePaths(String treeCorpusRoot, String numOfTrees) {
+		LinkedList<String> treeFilePaths = new LinkedList<String>();
 		File[] files = new File(treeCorpusRoot).listFiles(new FileFilter() {
 			@Override
 			public boolean accept(File pathname) {
@@ -2716,8 +2716,11 @@ public class CommonUtil extends VSMThesis {
 			}
 		});
 
+		Arrays.sort(files);
+
 		for (File file : files) {
 			File[] treeFiles = file.listFiles();
+			Arrays.sort(treeFiles);
 			for (File treeFile : treeFiles) {
 				if (!numOfTrees.equalsIgnoreCase("all") && treeFilePaths.size() > Integer.parseInt(numOfTrees))
 					return treeFilePaths;

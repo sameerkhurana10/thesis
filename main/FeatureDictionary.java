@@ -434,8 +434,9 @@ public class FeatureDictionary {
 		logger.info("++ NUMBER OF TREE FILES:  " + treeFiles.size());
 
 		/*
-		 * One thread for each dictionary preparation to run all in parallel. 16
-		 * threads in total. Program should be fast now
+		 * First creating the inside dictionaries concurrently. Not putting too
+		 * much load on the system. To avoid the "too many open files" exception
+		 * //
 		 */
 		Thread insideBinFullDictionary = new Thread(new ExtractInsideFeatureDictionary(treeFiles, nonTerminal,
 				insideBinFull, filteredInsideBinFull, new InsideBinFull(), dictionaryWritePath, "insideBinFull"));
@@ -449,6 +450,20 @@ public class FeatureDictionary {
 
 		Thread insideBinLeftDictionary = new Thread(new ExtractInsideFeatureDictionary(treeFiles, nonTerminal,
 				insideBinLeft, filteredInsideBinLeft, new InsideBinLeft(), dictionaryWritePath, "insideBinLeft"));
+
+		insideBinFullDictionary.start();
+		insideBinRightDictionary.start();
+		insideBinRightPlusDictionary.start();
+		insideBinLeftDictionary.start();
+
+		try {
+			insideBinFullDictionary.join();
+			insideBinRightDictionary.join();
+			insideBinRightPlusDictionary.join();
+			insideBinLeftDictionary.join();
+		} catch (InterruptedException e1) {
+			logger.error("exception while joining the top 4 featuredictionaries");
+		}
 
 		Thread insideBinLeftPlusDictionary = new Thread(
 				new ExtractInsideFeatureDictionary(treeFiles, nonTerminal, insideBinLeftPlus, filteredInsideBinLeftPlus,
@@ -464,6 +479,20 @@ public class FeatureDictionary {
 
 		Thread insideUnaryDictionary = new Thread(new ExtractInsideFeatureDictionary(treeFiles, nonTerminal,
 				insideUnary, filteredInsideUnary, new InsideUnary(), dictionaryWritePath, "insideUnary"));
+
+		insideBinLeftPlusDictionary.start();
+		ntHeadPosDictionary.start();
+		ntNumOfWordsDictionary.start();
+		insideUnaryDictionary.start();
+
+		try {
+			insideBinLeftPlusDictionary.join();
+			ntHeadPosDictionary.join();
+			ntNumOfWordsDictionary.join();
+			insideUnaryDictionary.join();
+		} catch (InterruptedException e) {
+			logger.error("error while joining the inside feature dictionary threads" + e);
+		}
 
 		Thread outsideFootNumWordsLeftDictionary = new Thread(new ExtractOutsideFeatureDictionary(treeFiles,
 				nonTerminal, outsideFootNumWordsLeft, filteredOutsideFootNumWordsLeft, new OutsideFootNumwordsleft(),
@@ -481,6 +510,20 @@ public class FeatureDictionary {
 				nonTerminal, outsideFootParentGrandParent, filteredOutsideFootParentGrandParent,
 				new OutsideFootParentGrandParent(), dictionaryWritePath, "outsideFootParentGrandParent"));
 
+		outsideFootNumWordsRightDictionary.start();
+		outsideFootNumWordsLeftDictionary.start();
+		outsideFootParentDictionary.start();
+		outsideFootParentGrandParentDictionary.start();
+
+		try {
+			outsideFootNumWordsLeftDictionary.join();
+			outsideFootNumWordsRightDictionary.join();
+			outsideFootParentDictionary.join();
+			outsideFootParentGrandParentDictionary.join();
+		} catch (InterruptedException e1) {
+			logger.error("error while joining the top 4 outside feature dictionary threads");
+		}
+
 		Thread outsideOtherHeadPosAboveDictionary = new Thread(new ExtractOutsideFeatureDictionary(treeFiles,
 				nonTerminal, outsideOtherHeadPosAbove, filteredOutsideOtherHeadPosAbove, new OutsideOtherheadposAbove(),
 				dictionaryWritePath, "outsideOtherHeadPosAbove"));
@@ -497,43 +540,20 @@ public class FeatureDictionary {
 				new ExtractOutsideFeatureDictionary(treeFiles, nonTerminal, outsideTreeAbove3,
 						filteredOutsideTreeAbove3, new OutsideTreeAbove3(), dictionaryWritePath, "outsideTreeAbove3"));
 
-		insideBinFullDictionary.start();
-		insideBinRightDictionary.start();
-		insideBinRightPlusDictionary.start();
-		insideBinLeftDictionary.start();
-		insideBinLeftPlusDictionary.start();
-		ntHeadPosDictionary.start();
-		ntNumOfWordsDictionary.start();
-		insideUnaryDictionary.start();
-		outsideFootNumWordsRightDictionary.start();
-		outsideFootNumWordsLeftDictionary.start();
-		outsideFootParentDictionary.start();
-		outsideFootParentGrandParentDictionary.start();
 		outsideOtherHeadPosAboveDictionary.start();
 		outsideTreeAbove1Dictionary.start();
 		outsideTreeAbove2Dictionary.start();
 		outsideTreeAbove3Dictionary.start();
 
 		try {
-			insideBinFullDictionary.join();
-			insideBinRightDictionary.join();
-			insideBinRightPlusDictionary.join();
-			insideBinLeftDictionary.join();
-			insideBinLeftPlusDictionary.join();
-			ntHeadPosDictionary.join();
-			ntNumOfWordsDictionary.join();
-			insideUnaryDictionary.join();
-			outsideFootNumWordsLeftDictionary.join();
-			outsideFootNumWordsRightDictionary.join();
-			outsideFootParentDictionary.join();
-			outsideFootParentGrandParentDictionary.join();
+
 			outsideOtherHeadPosAboveDictionary.join();
 			outsideTreeAbove1Dictionary.join();
 			outsideTreeAbove2Dictionary.join();
 			outsideTreeAbove3Dictionary.join();
 
 		} catch (InterruptedException e) {
-			logger.error("Error while joining the threads: " + e);
+			logger.error("Error while joining the outside dictionary threads: " + e);
 		}
 
 		long endTime = System.currentTimeMillis() / 60000;
