@@ -23,10 +23,17 @@ public class BLLIPCorpusReader {
 			throws FileNotFoundException, CompressorException {
 		FileInputStream fin = new FileInputStream(fileIn);
 		BufferedInputStream bis = new BufferedInputStream(fin);
-		CompressorInputStream input = new CompressorStreamFactory()
-				.createCompressorInputStream(bis);
+		CompressorInputStream input = new CompressorStreamFactory().createCompressorInputStream(bis);
 		BufferedReader br2 = new BufferedReader(new InputStreamReader(input));
 		return br2;
+	}
+
+	public static CompressorInputStream getInputStream(String fileIn)
+			throws FileNotFoundException, CompressorException {
+		FileInputStream fin = new FileInputStream(fileIn);
+		BufferedInputStream bis = new BufferedInputStream(fin);
+		CompressorInputStream input = new CompressorStreamFactory().createCompressorInputStream(bis);
+		return input;
 	}
 
 }

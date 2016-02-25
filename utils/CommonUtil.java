@@ -46,7 +46,7 @@ import com.jmatio.io.MatFileWriter;
 import com.jmatio.types.MLDouble;
 
 import Jama.Matrix;
-
+import beans.FeatureVector;
 import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix2D;
 import dictionary.Alphabet;
 import edu.berkeley.nlp.syntax.Constituent;
@@ -68,11 +68,14 @@ import features.OutsideOtherheadposAbove;
 import features.OutsideTreeAbove2;
 import features.OutsideTreeAbove3;
 import features.OutsideTreeabove1;
+import interfaces.InsideFeature;
+import interfaces.OutsideFeature;
 import jeigen.DenseMatrix;
 import jeigen.SparseMatrixLil;
 import no.uib.cipr.matrix.DenseVector;
 import no.uib.cipr.matrix.MatrixEntry;
 import no.uib.cipr.matrix.Vector;
+import no.uib.cipr.matrix.Vector.Norm;
 import no.uib.cipr.matrix.VectorEntry;
 import no.uib.cipr.matrix.sparse.FlexCompRowMatrix;
 import no.uib.cipr.matrix.sparse.SparseVector;
@@ -930,7 +933,7 @@ public class CommonUtil extends VSMThesis {
 	 * @param featureMatrix
 	 * @return
 	 */
-	public static Matrix createDenseMatrixJAMA(SparseMatrixLil featureMatrix) {
+	public static Matrix createDenseMatrixJAMA(VSMSparseMatrixLil featureMatrix) {
 		DenseMatrix matrix = featureMatrix.toDense();
 		Matrix x = new Matrix(featureMatrix.rows, featureMatrix.cols);
 		for (int i = 0; i < featureMatrix.rows; i++) {
@@ -1522,7 +1525,7 @@ public class CommonUtil extends VSMThesis {
 	 * @param xjeig
 	 * @return
 	 */
-	public static FlexCompRowMatrix createSparseMatrixMTJFromJeigen(SparseMatrixLil xjeig) {
+	public static FlexCompRowMatrix createSparseMatrixMTJFromJeigen(VSMSparseMatrixLil xjeig) {
 		FlexCompRowMatrix x = new FlexCompRowMatrix(xjeig.rows, xjeig.cols);
 
 		int count = xjeig.getSize();
@@ -1537,8 +1540,8 @@ public class CommonUtil extends VSMThesis {
 		return x;
 	}
 
-	public static SparseMatrixLil createJeigenMatrix(FlexCompRowMatrix xmtj) {
-		SparseMatrixLil x = new SparseMatrixLil(xmtj.numRows(), xmtj.numColumns());
+	public static VSMSparseMatrixLil createJeigenMatrix(FlexCompRowMatrix xmtj) {
+		VSMSparseMatrixLil x = new VSMSparseMatrixLil(xmtj.numRows(), xmtj.numColumns());
 
 		for (MatrixEntry e : xmtj) {
 			x.append(e.row(), e.column(), e.get());
@@ -1553,7 +1556,7 @@ public class CommonUtil extends VSMThesis {
 		return x;
 	}
 
-	public static void writeCovarMatrix(SparseMatrixLil psiTPsi, String nonTerminal) {
+	public static void writeCovarMatrix(VSMSparseMatrixLil psiTPsi, String nonTerminal) {
 		id++;
 		String filePath = "/afs/inf.ed.ac.uk/group/project/vsm.restored/covars/" + nonTerminal + "/" + "covar_" + id
 				+ ".txt";
@@ -1580,7 +1583,7 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static void writeCovarMatrixSem(SparseMatrixLil psiTPsi, String nonTerminal) {
+	public static void writeCovarMatrixSem(VSMSparseMatrixLil psiTPsi, String nonTerminal) {
 		id++;
 		String filePath = "/afs/inf.ed.ac.uk/group/project/vsm.restored/covarssem/" + nonTerminal + "/" + "covar_" + id
 				+ ".txt";
@@ -2768,6 +2771,433 @@ public class CommonUtil extends VSMThesis {
 			System.exit(-1);
 		}
 		return null;
+	}
+
+	public static LinkedList<Alphabet> getDictionaries(String featureDictionaries, String nonTerminal, String type)
+			throws FileNotFoundException, IOException, ClassNotFoundException {
+		LinkedList<Alphabet> dictionaries = new LinkedList<Alphabet>();
+		File[] dictionaryFiles = new File(featureDictionaries + "/" + nonTerminal + "/ser/" + type)
+				.listFiles(new FileFilter() {
+
+					@Override
+					public boolean accept(File pathname) {
+						return !pathname.isHidden();
+					}
+				});
+
+		Arrays.sort(dictionaryFiles);
+
+		for (File f : dictionaryFiles) {
+			if (!f.getName().contains(".map.ser")) {
+				ObjectInputStream ois = new ObjectInputStream(new FileInputStream(f));
+				Alphabet dictionary = (Alphabet) ois.readObject();
+				dictionary.stopGrowth();
+				ois.close();
+				if (dictionary.size() > 1)
+					dictionaries.add(dictionary);
+			}
+		}
+		return dictionaries;
+	}
+
+	public static int getVectorDimensions(LinkedList<Alphabet> dictionaries) {
+		int dimen = 0;
+		for (Alphabet dictionary : dictionaries) {
+			dimen = dimen + dictionary.size();
+		}
+		return dimen;
+	}
+
+	public static Alphabet combineDictionaries(LinkedList<Alphabet> dictionaries, int dim) {
+		Alphabet dictionary = new Alphabet(dim);
+		dictionary.allowGrowth();
+		dictionary.lookupIndex("NOTFREQUENT");
+		for (Alphabet a : dictionaries) {
+			Object[] objs = a.map.keys();
+			for (Object o : objs) {
+				String feature = (String) o;
+				if (feature.equals("NOTFREQUENT")) {
+					dictionary.countMap.put("NOTFREQUENT",
+							dictionary.countMap.get("NOTFREQUENT") + a.countMap.get("NOTFREQUENT"));
+				} else {
+					int count = a.countMap.get(feature);
+					dictionary.lookupIndex(feature);
+					dictionary.countMap.put(feature, count);
+				}
+			}
+		}
+		return dictionary;
+	}
+
+	public static void serializeVec(LinkedList<FeatureVector> featureVecs, String nonTerminal,
+			String featureVectorsStoragePath, String type) {
+		try {
+			File file = new File(featureVectorsStoragePath + "/" + nonTerminal + "/" + type + ".ser");
+			if (!file.getParentFile().exists()) {
+				file.getParentFile().mkdirs();
+			}
+			ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(file));
+			os.writeObject(featureVecs);
+			os.flush();
+			os.close();
+		} catch (IOException e) {
+			// TODO
+		}
+	}
+
+	public static LinkedList<OutsideFeature> getOutsideFeatureObjects() {
+		LinkedList<OutsideFeature> outsideFeatureObjects = new LinkedList<OutsideFeature>(
+				Arrays.asList(new OutsideFootNumwordsleft(), new OutsideFootNumwordsright(), new OutsideFootParent(),
+						new OutsideFootParentGrandParent(), new OutsideOtherheadposAbove(), new OutsideTreeabove1(),
+						new OutsideTreeAbove2(), new OutsideTreeAbove3()));
+		return outsideFeatureObjects;
+
+	}
+
+	public static LinkedList<InsideFeature> getInsideFeatureObjects() {
+		LinkedList<InsideFeature> insideFeatureObjects = new LinkedList<InsideFeature>(
+				Arrays.asList(new InsideBinFull(), new InsideBinLeft(), new InsideBinLeftPlus(), new InsideBinRight(),
+						new InsideBinRightPlus(), new InsideNtHeadPos(), new InsideNtNumOfWords(), new InsideUnary()));
+		return insideFeatureObjects;
+	}
+
+	public static VSMSparseVector getVector(Alphabet alphabet, Alphabet dictionary, int dimension) {
+		VSMSparseVector vec = new VSMSparseVector(dimension);
+		for (Object obj : alphabet.map.keys()) {
+			String feature = (String) obj;
+			int dictionaryIndex = dictionary.lookupIndex(feature);
+			int featureSampleCount = alphabet.countMap.get(feature);
+			int featureCorpusCount = dictionary.countMap.get(feature);
+			double tfidf = 0.0;
+			// TODO calculate the tfidf
+			vec.add(dictionaryIndex, tfidf);
+
+		}
+		return vec;
+	}
+
+	public static void serializeDictionary(Alphabet dictionary, String nonTerminal, String featureVectorsStoragePath,
+			String type) {
+		try {
+			File file = new File(featureVectorsStoragePath + "/" + nonTerminal + "/" + type + "dictionary.ser");
+			if (!file.getParentFile().exists()) {
+				file.getParentFile().mkdirs();
+			}
+			ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(file));
+			os.writeObject(dictionary);
+			os.flush();
+			os.close();
+		} catch (IOException e) {
+			// TODO
+		}
+	}
+
+	public static void writeStatisticsToDisk(LinkedList<FeatureVector> sparseVectors, String nonTerminal,
+			String featureVectorsStoragePath, String type) {
+
+		for (FeatureVector vecBean : sparseVectors) {
+
+			try {
+				BufferedWriter bw = new BufferedWriter(new FileWriter(
+						featureVectorsStoragePath + "/" + nonTerminal + "/" + type + "vectors.txt", true));
+				VSMSparseVector vec = vecBean.getFeatureVec();
+				int[] indexes = vec.getIndex();
+				String t = "";
+				for (int i : indexes) {
+					double val = vec.get(i);
+					t = t + " " + i + ":" + val;
+				}
+
+				t.trim();
+				String f = "";
+				LinkedList<String> features = vecBean.getFeatureList();
+				for (String feature : features) {
+					f = f + " " + feature;
+				}
+				bw.write(t + "\t" + f.trim() + "\t" + vecBean.getInsideTree() + "\t"
+						+ Long.toString(vecBean.getTreeIdx()) + ":" + vecBean.getSyntaxTree() + "\n");
+				bw.flush();
+				bw.close();
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}
+
+	}
+
+	public static void writeDictionaryToDisk(Alphabet dictionary, Alphabet sampleDictionary, String nonTerminal,
+			String featureVectorsStoragePath, String type) {
+		Object[] objs = dictionary.map.keys();
+		for (Object obj : objs) {
+			try {
+				BufferedWriter bw = new BufferedWriter(new FileWriter(
+						featureVectorsStoragePath + "/" + nonTerminal + "/" + type + "dictionary.txt", true));
+				String feature = (String) obj;
+				int index = dictionary.lookupIndex(feature);
+				int sampleCount = sampleDictionary.countMap.get(feature);
+				bw.write(Integer.toString(index) + "\t" + feature + "\t" + Integer.toString(sampleCount) + "\n");
+				bw.flush();
+				bw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}
+
+	}
+
+	public static void scaleFeatures(LinkedList<FeatureVector> sparseVectors, Alphabet sampleDictionary,
+			Alphabet dictionary, int M, int k) {
+
+		for (FeatureVector bean : sparseVectors) {
+			VSMSparseVector scaledPsi = new VSMSparseVector(bean.getFeatureVec().size());
+			VSMSparseVector psi = bean.getFeatureVec();
+			Iterator<VectorEntry> vecItr = psi.iterator();
+			while (vecItr.hasNext()) {
+				VectorEntry e = vecItr.next();
+				String feature = (String) dictionary.reverseMap.get(e.index());
+				int featureCountInM = sampleDictionary.countMap.get(feature);
+				double scalingFactor = Math.sqrt((double) (M) / (double) (featureCountInM + k));
+				scaledPsi.add(e.index(), (e.get() * scalingFactor));
+			}
+
+			bean.setFeatureVec(scaledPsi);
+		}
+
+	}
+
+	public static LinkedList<FeatureVector> getVectors(String vectorsPath, org.apache.log4j.Logger logger) {
+		logger.info("Deserealizing the vectors from the file: " + vectorsPath);
+		LinkedList<FeatureVector> featureVectors = new LinkedList<FeatureVector>();
+		try {
+			ObjectInputStream ois = new ObjectInputStream(BLLIPCorpusReader.getInputStream(vectorsPath));
+			featureVectors = (LinkedList<FeatureVector>) ois.readObject();
+			ois.close();
+		} catch (IOException e) {
+			logger.error("IO Exception while reading the Object file " + e);
+		} catch (ClassNotFoundException e) {
+			logger.error("CLASSNOTFOUND " + e);
+		} catch (CompressorException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return featureVectors;
+	}
+
+	public static void formFeatureMatrix(LinkedList<FeatureVector> outsideVectors, VSMSparseMatrixLil Psi,
+			org.apache.log4j.Logger logger) {
+		logger.info("Forming the feature Matrix of dimensions " + Psi.shape());
+		int col = 0;
+		for (FeatureVector bean : outsideVectors) {
+			SparseVector vec = bean.getFeatureVec();
+			Iterator<VectorEntry> itrs = vec.iterator();
+			while (itrs.hasNext()) {
+				VectorEntry e = itrs.next();
+				Psi.append(e.index(), col, e.get());
+			}
+			col++;
+		}
+
+	}
+
+	public static void serializeFeatureMatrix(VSMSparseMatrixLil Psi, String matrixStoragePath,
+			org.apache.log4j.Logger logger) {
+		logger.info("Serializing the feature matrix");
+		try {
+			ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(matrixStoragePath));
+			oos.writeObject(Psi);
+			oos.flush();
+			oos.close();
+		} catch (IOException e) {
+			logger.error("IOException " + e);
+		}
+
+	}
+
+	public static void writeFeatureMatrices(VSMSparseMatrixLil Psi, String matrixStoragePath,
+			org.apache.log4j.Logger logger) {
+
+		logger.info("Total memory being used: " + Runtime.getRuntime().totalMemory());
+		logger.info("Writing sparse matrices to file");
+		try {
+			BufferedWriter bw = null;
+			int size = Psi.getSize();
+			for (int i = 0; i < size; i++) {
+				bw = new BufferedWriter(new FileWriter(matrixStoragePath, true));
+				// +1 for matlab
+				int rowidx = Psi.getRowIdx(i) + 1;
+				int colidx = Psi.getColIdx(i) + 1;
+				double value = Psi.getValue(i);
+				bw.write(Integer.toString(rowidx) + "\t" + Integer.toString(colidx) + "\t" + Double.toString(value)
+						+ "\n");
+				bw.flush();
+				bw.close();
+			}
+
+			// The last line is added to tell Matlab about the matrix dimensions
+			bw = new BufferedWriter(new FileWriter(matrixStoragePath, true));
+			bw.write(Integer.toString(Psi.rows) + "\t" + Integer.toString(Psi.cols) + "\t" + Double.toString(0.0));
+			bw.flush();
+			bw.close();
+
+		} catch (IOException e) {
+			logger.error("IOExcpeiton while wirting the feature matrices to the disk" + e);
+		}
+	}
+
+	public static Object[] deserializeFeatureMatrices(String matrixStorePath, String nonTerminal,
+			org.apache.log4j.Logger logger) {
+
+		logger.info("Deserialize the feature matrices ");
+		Object[] matrices = new Object[2];
+		try {
+			ObjectInputStream ois1 = new ObjectInputStream(
+					new FileInputStream(matrixStorePath + "/" + nonTerminal + "/ifm.ser"));
+			matrices[0] = ois1.readObject();
+			ois1.close();
+			ObjectInputStream ois2 = new ObjectInputStream(
+					new FileInputStream(matrixStorePath + "/" + nonTerminal + "/ofm.ser"));
+			matrices[1] = ois2.readObject();
+			ois2.close();
+		} catch (IOException e) {
+			logger.error("IOException " + e);
+		} catch (ClassNotFoundException e) {
+			logger.error("ClassNotFoundException " + e);
+		}
+
+		return matrices;
+
+	}
+
+	public static DenseMatrix calculateCovariance(DenseMatrix ivMat, DenseMatrix ovMat,
+			org.apache.log4j.Logger logger) {
+
+		DenseMatrix covR = ivMat.mmul(ovMat.t());
+
+		return covR;
+	}
+
+	public static void writeMatrixToDisk(SparseMatrixLil covMatrix, String matrixStorePath, String nonTerminal,
+			org.apache.log4j.Logger logger) {
+
+		BufferedWriter bw = null;
+		int size = covMatrix.getSize();
+		for (int i = 0; i < size; i++) {
+			try {
+				bw = new BufferedWriter(new FileWriter(matrixStorePath + "/" + nonTerminal + "/covM.txt", true));
+				// +1 for matlab
+				int rowidx = covMatrix.getRowIdx(i) + 1;
+				int colidx = covMatrix.getColIdx(i) + 1;
+				double val = covMatrix.getValue(i);
+				bw.write(Integer.toString(rowidx) + "\t" + Integer.toString(colidx) + "\t" + Double.toString(val)
+						+ "\n");
+				bw.flush();
+				bw.close();
+
+			} catch (IOException e) {
+				logger.info("IOException " + e);
+			}
+
+		}
+
+		try {
+			bw = new BufferedWriter(new FileWriter(matrixStorePath + "/" + nonTerminal + "/covM.txt", true));
+			bw.write(Integer.toString(covMatrix.rows) + "\t" + Integer.toString(covMatrix.cols) + "\t"
+					+ Double.toString(0.0));
+			bw.close();
+		} catch (IOException e) {
+			logger.error("IOException " + e);
+		}
+
+	}
+
+	public static void serializeCovMatrix(Matrix covMatrix, String matrixStorePath, String nonTerminal,
+			org.apache.log4j.Logger logger) {
+		logger.info("Serializing the covariance matrix for the non-terminal " + nonTerminal);
+
+		File file = new File(matrixStorePath + "/" + nonTerminal);
+		if (!file.exists()) {
+			file.mkdirs();
+		}
+
+		try {
+			ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(file.getAbsolutePath() + "/cov.ser"));
+			os.writeObject(covMatrix);
+			os.flush();
+			os.close();
+		} catch (FileNotFoundException e) {
+			logger.error("FileNotFoundException " + e);
+		} catch (IOException e) {
+			logger.error("IOException " + e);
+		}
+
+	}
+
+	public static DenseVector normalizeVector(VSMSparseVector vector, String isL2Norm, org.apache.log4j.Logger logger) {
+
+		DenseVector vectorD = new DenseVector(vector);
+
+		double mean = CommonUtil.mean(vector);
+		DenseVector meanVector = new DenseVector(vectorD.size());
+		for (int i = 0; i < meanVector.size(); i++) {
+			// negative mean vector that can be added to the actual vector
+			meanVector.add(i, (0.0 - mean));
+		}
+
+		// Vector mean normalization
+		DenseVector vectorMuNormalized = (DenseVector) vectorD.add(meanVector);
+		if (isL2Norm.equalsIgnoreCase("yes"))
+			vectorMuNormalized.scale(vectorMuNormalized.norm(Norm.Two));
+
+		return vectorMuNormalized;
+
+	}
+
+	public static double mean(VSMSparseVector vector) {
+		double mean = 0.0;
+		int size = vector.size();
+		double[] values = vector.getData();
+		double sum = 0.0;
+		for (double d : values) {
+			sum = sum + d;
+		}
+
+		mean = sum / (double) size;
+		return mean;
+	}
+
+	public static LinkedList<VSMSparseVector> getVectorBeans(String nonTerminal, String featureVectorsStoragePath,
+			String string, org.apache.log4j.Logger logger) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	public static FlexCompRowMatrix createSparseMatrixMTJFromJeigen(SparseMatrixLil xjeig) {
+		FlexCompRowMatrix x = new FlexCompRowMatrix(xjeig.rows, xjeig.cols);
+
+		int count = xjeig.getSize();
+		for (int i = 0; i < count; i++) {
+			int row = xjeig.getRowIdx(i);
+			int col = xjeig.getColIdx(i);
+			double value = xjeig.getValue(i);
+			// if(value!=0)
+			x.set(row, col, value);
+		}
+
+		return x;
+	}
+
+	public static DenseDoubleMatrix2D createDenseMatrixCOLT(jeigen.DenseMatrix uSVNew) {
+
+		DenseDoubleMatrix2D X = new DenseDoubleMatrix2D(uSVNew.rows, uSVNew.cols);
+		for (int i = 0; i < uSVNew.rows; i++) {
+			for (int j = 0; j < uSVNew.cols; j++) {
+				X.set(i, j, uSVNew.get(i, j));
+			}
+		}
+		return X;
 	}
 
 }

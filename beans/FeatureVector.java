@@ -1,8 +1,10 @@
 package beans;
 
 import java.io.Serializable;
+import java.util.LinkedList;
 import java.util.Stack;
 
+import dictionary.Alphabet;
 import edu.berkeley.nlp.syntax.Tree;
 import utils.VSMSparseVector;
 
@@ -17,8 +19,11 @@ public class FeatureVector implements Serializable {
 	private Tree<String> syntaxTree;
 	private Stack<Tree<String>> footToRoot;
 	private VSMSparseVector featureVec;
-	private String treeFileName;
-	private int treeFileIdx;
+	private int vectorDimensions;
+	private long treeIdx;
+	private Alphabet sampleDictionary;
+	private Alphabet fullDictionary;
+	private LinkedList<String> featureList;
 
 	public Tree<String> getInsideTree() {
 		return insideTree;
@@ -52,20 +57,44 @@ public class FeatureVector implements Serializable {
 		this.featureVec = featureVec;
 	}
 
-	public String getTreeFileName() {
-		return treeFileName;
+	public long getTreeIdx() {
+		return treeIdx;
 	}
 
-	public void setTreeFileName(String treeFileName) {
-		this.treeFileName = treeFileName;
+	public void setTreeIdx(int treeFileIdx) {
+		this.treeIdx = treeFileIdx;
 	}
 
-	public int getTreeFileIdx() {
-		return treeFileIdx;
+	public int getVectorDimensions() {
+		return vectorDimensions;
 	}
 
-	public void setTreeFileIdx(int treeFileIdx) {
-		this.treeFileIdx = treeFileIdx;
+	public void setVectorDimensions(int vectorDimensions) {
+		this.vectorDimensions = vectorDimensions;
+	}
+
+	public Alphabet getSampleDictionary() {
+		return sampleDictionary;
+	}
+
+	public void setSampleDictionary(Alphabet sampleDictionary) {
+		this.sampleDictionary = sampleDictionary;
+	}
+
+	public Alphabet getFullDictionary() {
+		return fullDictionary;
+	}
+
+	public void setFullDictionary(Alphabet fullDictionary) {
+		this.fullDictionary = fullDictionary;
+	}
+
+	public LinkedList<String> getFeatureList() {
+		return featureList;
+	}
+
+	public void setFeatureList(LinkedList<String> featureList) {
+		this.featureList = featureList;
 	}
 
 }

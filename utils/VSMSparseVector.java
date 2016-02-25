@@ -2,8 +2,7 @@ package utils;
 
 import no.uib.cipr.matrix.sparse.SparseVector;
 
-public class VSMSparseVector extends SparseVector implements
-		java.io.Serializable {
+public class VSMSparseVector extends SparseVector implements java.io.Serializable {
 
 	/**
 	 * 

@@ -677,7 +677,7 @@ public class FeatureDictionary {
 
 	}
 
-	static Tree<String> getNormalizedTree(Tree<String> tree) {
+	public static Tree<String> getNormalizedTree(Tree<String> tree) {
 		Tree<String> syntaxTree = null;
 		try {
 			syntaxTree = treeNormalizer.process(tree);
@@ -687,11 +687,11 @@ public class FeatureDictionary {
 		return syntaxTree;
 	}
 
-	static Iterator<Tree<String>> getTreeNodeIterator(Tree<String> tree) {
+	public static Iterator<Tree<String>> getTreeNodeIterator(Tree<String> tree) {
 		return tree.iterator();
 	}
 
-	static boolean checkIsPreterminal(Tree<String> insideTree) {
+	public static boolean checkIsPreterminal(Tree<String> insideTree) {
 		return insideTree.isPreTerminal();
 	}
 
