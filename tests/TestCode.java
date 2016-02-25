@@ -26,7 +26,6 @@ import no.uib.cipr.matrix.VectorEntry;
 import no.uib.cipr.matrix.sparse.FlexCompRowMatrix;
 import no.uib.cipr.matrix.sparse.SparseVector;
 import utils.CommonUtil;
-import utils.VSMDenseMatrix;
 
 public class TestCode extends TestCase {
 	protected int value1, value2;
