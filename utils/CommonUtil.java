@@ -47,7 +47,11 @@ import com.jmatio.types.MLDouble;
 
 import Jama.Matrix;
 import beans.FeatureVector;
+import cern.colt.matrix.DoubleMatrix1D;
+import cern.colt.matrix.DoubleMatrix2D;
+import cern.colt.matrix.impl.SparseDoubleMatrix1D;
 import cern.colt.matrix.tdouble.impl.DenseDoubleMatrix2D;
+import cern.colt.matrix.tdouble.impl.SparseDoubleMatrix2D;
 import dictionary.Alphabet;
 import edu.berkeley.nlp.syntax.Constituent;
 import edu.berkeley.nlp.syntax.Tree;
@@ -75,7 +79,6 @@ import jeigen.SparseMatrixLil;
 import no.uib.cipr.matrix.DenseVector;
 import no.uib.cipr.matrix.MatrixEntry;
 import no.uib.cipr.matrix.Vector;
-import no.uib.cipr.matrix.Vector.Norm;
 import no.uib.cipr.matrix.VectorEntry;
 import no.uib.cipr.matrix.sparse.FlexCompRowMatrix;
 import no.uib.cipr.matrix.sparse.SparseVector;
@@ -933,7 +936,7 @@ public class CommonUtil extends VSMThesis {
 	 * @param featureMatrix
 	 * @return
 	 */
-	public static Matrix createDenseMatrixJAMA(VSMSparseMatrixLil featureMatrix) {
+	public static Matrix createDenseMatrixJAMA(SparseMatrixLil featureMatrix) {
 		DenseMatrix matrix = featureMatrix.toDense();
 		Matrix x = new Matrix(featureMatrix.rows, featureMatrix.cols);
 		for (int i = 0; i < featureMatrix.rows; i++) {
@@ -1525,23 +1528,9 @@ public class CommonUtil extends VSMThesis {
 	 * @param xjeig
 	 * @return
 	 */
-	public static FlexCompRowMatrix createSparseMatrixMTJFromJeigen(VSMSparseMatrixLil xjeig) {
-		FlexCompRowMatrix x = new FlexCompRowMatrix(xjeig.rows, xjeig.cols);
 
-		int count = xjeig.getSize();
-		for (int i = 0; i < count; i++) {
-			int row = xjeig.getRowIdx(i);
-			int col = xjeig.getColIdx(i);
-			double value = xjeig.getValue(i);
-			// if(value!=0)
-			x.set(row, col, value);
-		}
-
-		return x;
-	}
-
-	public static VSMSparseMatrixLil createJeigenMatrix(FlexCompRowMatrix xmtj) {
-		VSMSparseMatrixLil x = new VSMSparseMatrixLil(xmtj.numRows(), xmtj.numColumns());
+	public static SparseMatrixLil createJeigenMatrix(FlexCompRowMatrix xmtj) {
+		SparseMatrixLil x = new SparseMatrixLil(xmtj.numRows(), xmtj.numColumns());
 
 		for (MatrixEntry e : xmtj) {
 			x.append(e.row(), e.column(), e.get());
@@ -1556,7 +1545,7 @@ public class CommonUtil extends VSMThesis {
 		return x;
 	}
 
-	public static void writeCovarMatrix(VSMSparseMatrixLil psiTPsi, String nonTerminal) {
+	public static void writeCovarMatrix(SparseMatrixLil psiTPsi, String nonTerminal) {
 		id++;
 		String filePath = "/afs/inf.ed.ac.uk/group/project/vsm.restored/covars/" + nonTerminal + "/" + "covar_" + id
 				+ ".txt";
@@ -1583,7 +1572,7 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static void writeCovarMatrixSem(VSMSparseMatrixLil psiTPsi, String nonTerminal) {
+	public static void writeCovarMatrixSem(SparseMatrixLil psiTPsi, String nonTerminal) {
 		id++;
 		String filePath = "/afs/inf.ed.ac.uk/group/project/vsm.restored/covarssem/" + nonTerminal + "/" + "covar_" + id
 				+ ".txt";
@@ -2832,7 +2821,8 @@ public class CommonUtil extends VSMThesis {
 	public static void serializeVec(LinkedList<FeatureVector> featureVecs, String nonTerminal,
 			String featureVectorsStoragePath, String type) {
 		try {
-			File file = new File(featureVectorsStoragePath + "/" + nonTerminal + "/" + type + ".ser");
+			File file = new File(
+					featureVectorsStoragePath + "/" + nonTerminal.replaceAll("-", "") + "/" + type + ".ser");
 			if (!file.getParentFile().exists()) {
 				file.getParentFile().mkdirs();
 			}
@@ -2879,7 +2869,8 @@ public class CommonUtil extends VSMThesis {
 	public static void serializeDictionary(Alphabet dictionary, String nonTerminal, String featureVectorsStoragePath,
 			String type) {
 		try {
-			File file = new File(featureVectorsStoragePath + "/" + nonTerminal + "/" + type + "dictionary.ser");
+			File file = new File(
+					featureVectorsStoragePath + "/" + nonTerminal.replaceAll("-", "") + "/" + type + "dictionary.ser");
 			if (!file.getParentFile().exists()) {
 				file.getParentFile().mkdirs();
 			}
@@ -2899,7 +2890,8 @@ public class CommonUtil extends VSMThesis {
 
 			try {
 				BufferedWriter bw = new BufferedWriter(new FileWriter(
-						featureVectorsStoragePath + "/" + nonTerminal + "/" + type + "vectors.txt", true));
+						featureVectorsStoragePath + "/" + nonTerminal.replaceAll("-", "") + "/" + type + "vectors.txt",
+						true));
 				VSMSparseVector vec = vecBean.getFeatureVec();
 				int[] indexes = vec.getIndex();
 				String t = "";
@@ -2932,8 +2924,8 @@ public class CommonUtil extends VSMThesis {
 		Object[] objs = dictionary.map.keys();
 		for (Object obj : objs) {
 			try {
-				BufferedWriter bw = new BufferedWriter(new FileWriter(
-						featureVectorsStoragePath + "/" + nonTerminal + "/" + type + "dictionary.txt", true));
+				BufferedWriter bw = new BufferedWriter(new FileWriter(featureVectorsStoragePath + "/"
+						+ nonTerminal.replaceAll("-", "") + "/" + type + "dictionary.txt", true));
 				String feature = (String) obj;
 				int index = dictionary.lookupIndex(feature);
 				int sampleCount = sampleDictionary.countMap.get(feature);
@@ -2972,21 +2964,18 @@ public class CommonUtil extends VSMThesis {
 		logger.info("Deserealizing the vectors from the file: " + vectorsPath);
 		LinkedList<FeatureVector> featureVectors = new LinkedList<FeatureVector>();
 		try {
-			ObjectInputStream ois = new ObjectInputStream(BLLIPCorpusReader.getInputStream(vectorsPath));
+			ObjectInputStream ois = new ObjectInputStream(new FileInputStream(vectorsPath));
 			featureVectors = (LinkedList<FeatureVector>) ois.readObject();
 			ois.close();
 		} catch (IOException e) {
 			logger.error("IO Exception while reading the Object file " + e);
 		} catch (ClassNotFoundException e) {
 			logger.error("CLASSNOTFOUND " + e);
-		} catch (CompressorException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 		return featureVectors;
 	}
 
-	public static void formFeatureMatrix(LinkedList<FeatureVector> outsideVectors, VSMSparseMatrixLil Psi,
+	public static void formFeatureMatrix(LinkedList<FeatureVector> outsideVectors, SparseMatrixLil Psi,
 			org.apache.log4j.Logger logger) {
 		logger.info("Forming the feature Matrix of dimensions " + Psi.shape());
 		int col = 0;
@@ -3002,12 +2991,15 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static void serializeFeatureMatrix(VSMSparseMatrixLil Psi, String matrixStoragePath,
+	public static void serializeFeatureMatrix(SparseMatrixLil featureMatrix, String matrixStoragePath,
 			org.apache.log4j.Logger logger) {
 		logger.info("Serializing the feature matrix");
+		logger.info("++Feature Matrix conversion++");
+		SparseDoubleMatrix2D PsiCern = CommonUtil
+				.createSparseMatrixCOLT(CommonUtil.createSparseMatrixMTJFromJeigen(featureMatrix));
 		try {
 			ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(matrixStoragePath));
-			oos.writeObject(Psi);
+			oos.writeObject(PsiCern);
 			oos.flush();
 			oos.close();
 		} catch (IOException e) {
@@ -3016,7 +3008,7 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static void writeFeatureMatrices(VSMSparseMatrixLil Psi, String matrixStoragePath,
+	public static void writeFeatureMatrices(SparseMatrixLil Psi, String matrixStoragePath,
 			org.apache.log4j.Logger logger) {
 
 		logger.info("Total memory being used: " + Runtime.getRuntime().totalMemory());
@@ -3071,10 +3063,11 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static DenseMatrix calculateCovariance(DenseMatrix ivMat, DenseMatrix ovMat,
+	public static SparseMatrixLil calculateCovariance(SparseMatrixLil Phi, SparseMatrixLil Psi,
 			org.apache.log4j.Logger logger) {
-
-		DenseMatrix covR = ivMat.mmul(ovMat.t());
+		logger.info("Calculating Covariance matrix");
+		SparseMatrixLil covR = Phi.mmul(Psi.t());
+		logger.info("CovMatrix Dimensions are given by " + covR.rows + " x " + covR.cols);
 
 		return covR;
 	}
@@ -3113,18 +3106,15 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static void serializeCovMatrix(Matrix covMatrix, String matrixStorePath, String nonTerminal,
+	public static void serializeCovMatrix(SparseMatrixLil covMatrix, String matrixStorePath, String nonTerminal,
 			org.apache.log4j.Logger logger) {
 		logger.info("Serializing the covariance matrix for the non-terminal " + nonTerminal);
-
-		File file = new File(matrixStorePath + "/" + nonTerminal);
-		if (!file.exists()) {
-			file.mkdirs();
-		}
-
+		SparseDoubleMatrix2D coMatrix2d = CommonUtil
+				.createSparseMatrixCOLT(CommonUtil.createSparseMatrixMTJFromJeigen(covMatrix));
 		try {
-			ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(file.getAbsolutePath() + "/cov.ser"));
-			os.writeObject(covMatrix);
+			ObjectOutputStream os = new ObjectOutputStream(
+					new FileOutputStream(matrixStorePath + "/" + nonTerminal + "/covM.ser"));
+			os.writeObject(coMatrix2d);
 			os.flush();
 			os.close();
 		} catch (FileNotFoundException e) {
@@ -3135,43 +3125,9 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static DenseVector normalizeVector(VSMSparseVector vector, String isL2Norm, org.apache.log4j.Logger logger) {
-
-		DenseVector vectorD = new DenseVector(vector);
-
-		double mean = CommonUtil.mean(vector);
-		DenseVector meanVector = new DenseVector(vectorD.size());
-		for (int i = 0; i < meanVector.size(); i++) {
-			// negative mean vector that can be added to the actual vector
-			meanVector.add(i, (0.0 - mean));
-		}
-
-		// Vector mean normalization
-		DenseVector vectorMuNormalized = (DenseVector) vectorD.add(meanVector);
-		if (isL2Norm.equalsIgnoreCase("yes"))
-			vectorMuNormalized.scale(vectorMuNormalized.norm(Norm.Two));
-
-		return vectorMuNormalized;
-
-	}
-
-	public static double mean(VSMSparseVector vector) {
-		double mean = 0.0;
-		int size = vector.size();
-		double[] values = vector.getData();
-		double sum = 0.0;
-		for (double d : values) {
-			sum = sum + d;
-		}
-
-		mean = sum / (double) size;
-		return mean;
-	}
-
-	public static LinkedList<VSMSparseVector> getVectorBeans(String nonTerminal, String featureVectorsStoragePath,
-			String string, org.apache.log4j.Logger logger) {
+	public static void writeSparseMatrixToFile(SparseMatrixLil psi) {
 		// TODO Auto-generated method stub
-		return null;
+
 	}
 
 	public static FlexCompRowMatrix createSparseMatrixMTJFromJeigen(SparseMatrixLil xjeig) {
@@ -3189,15 +3145,21 @@ public class CommonUtil extends VSMThesis {
 		return x;
 	}
 
-	public static DenseDoubleMatrix2D createDenseMatrixCOLT(jeigen.DenseMatrix uSVNew) {
+	public static SparseDoubleMatrix2D createSparseMatrixCOLT(FlexCompRowMatrix xmtj) {
 
-		DenseDoubleMatrix2D X = new DenseDoubleMatrix2D(uSVNew.rows, uSVNew.cols);
-		for (int i = 0; i < uSVNew.rows; i++) {
-			for (int j = 0; j < uSVNew.cols; j++) {
-				X.set(i, j, uSVNew.get(i, j));
-			}
+		System.out.println(" Number Rows: " + xmtj.numRows());
+		System.out.println(" Number Cols: " + xmtj.numColumns());
+
+		xmtj.compact();
+
+		SparseDoubleMatrix2D x_omega = new SparseDoubleMatrix2D(xmtj.numRows(), xmtj.numColumns(), 0, 0.70, 0.75);
+
+		for (MatrixEntry e : xmtj) {
+			x_omega.set(e.row(), e.column(), e.get());
 		}
-		return X;
+
+		System.out.println("==Created Sparse Matrix==");
+		return x_omega;
 	}
 
 }

@@ -1,31 +1,33 @@
 package tests;
 
-import java.io.BufferedWriter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.Arrays;
 import java.util.Iterator;
-import java.util.LinkedList;
 
-import org.j_paine.formatter.CJFormat;
-import org.nd4j.linalg.api.ndarray.INDArray;
-import org.nd4j.linalg.factory.Nd4j;
+import org.apache.commons.math3.stat.correlation.Covariance;
+import org.apache.commons.math3.stat.descriptive.moment.Mean;
 
 import Jama.Matrix;
-import beans.FeatureVector;
+import cern.colt.matrix.impl.DenseDoubleMatrix1D;
+import cern.colt.matrix.impl.DenseDoubleMatrix2D;
+import cern.colt.matrix.impl.SparseDoubleMatrix1D;
+import cern.colt.matrix.impl.SparseDoubleMatrix2D;
+import cern.colt.matrix.linalg.Algebra;
 import ch.akuhn.edu.mit.tedlab.SMat;
 import ch.akuhn.edu.mit.tedlab.Svdlib;
 import dictionary.Alphabet;
 import jeigen.DenseMatrix;
 import jeigen.SparseMatrixLil;
-import junit.framework.*;
+import junit.framework.TestCase;
 import no.uib.cipr.matrix.VectorEntry;
-import no.uib.cipr.matrix.sparse.FlexCompRowMatrix;
 import no.uib.cipr.matrix.sparse.SparseVector;
 import utils.CommonUtil;
+import utils.MatrixHelper;
+import utils.VSMSparseVector;
 
 public class TestCode extends TestCase {
 	protected int value1, value2;
@@ -53,41 +55,6 @@ public class TestCode extends TestCase {
 			System.out.println((xjeig.getRowIdx(i)) + " " + (xjeig.getColIdx(i)) + " " + xjeig.getValue(i));
 		}
 	}
-
-	// public void testVecs() {
-	// try {
-	// ObjectInputStream ois1 = new ObjectInputStream(
-	// new
-	// FileInputStream("/Users/alt-sameerk/Documents/edinburgh/exp_2016_1/featurevecs/CC/inside.ser"));
-	// LinkedList<FeatureVector> beanList = (LinkedList<FeatureVector>)
-	// ois1.readObject();
-	// for (FeatureVector bean : beanList) {
-	// BufferedWriter bw = new BufferedWriter(
-	// new FileWriter(System.getProperty("user.dir") + "/testvecs", true));
-	// Iterator<VectorEntry> itr = bean.getFeatureVec().iterator();
-	// String t = "";
-	// while (itr.hasNext()) {
-	// VectorEntry e = itr.next();
-	// t = t + " " + Integer.toString(e.index()) + ":" +
-	// Double.toString(e.get());
-	// }
-	//
-	// t.trim();
-	// bw.write(t + "\t" + bean.getVectorDimensions() + "\t" + bean.getTreeIdx()
-	// + "\t" + bean.getInsideTree()
-	// + "\n");
-	// bw.flush();
-	// bw.close();
-	// }
-	//
-	// } catch (IOException e) {
-	// // TODO Auto-generated catch block
-	// e.printStackTrace();
-	// } catch (ClassNotFoundException e) {
-	// // TODO Auto-generated catch block
-	// e.printStackTrace();
-	// }
-	// }
 
 	public void testDictionary() {
 		Alphabet a = new Alphabet();
@@ -131,6 +98,76 @@ public class TestCode extends TestCase {
 			ObjectInputStream ois = new ObjectInputStream(
 					new FileInputStream(System.getProperty("user.dir") + "/test.ser"));
 			Matrix m1 = (Matrix) ois.readObject();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	public void testSparse() {
+		VSMSparseVector v = new VSMSparseVector(3);
+		v.add(0, 1.0);
+		v.add(1, 2.0);
+		v.add(2, 0.0);
+
+		VSMSparseVector v1 = new VSMSparseVector(3);
+		v1.add(0, 3.0);
+		v1.add(1, 7.0);
+
+		double[] d1 = new double[3];
+		Iterator<VectorEntry> itr = v.iterator();
+		int i = 0;
+		while (itr.hasNext()) {
+			VectorEntry e = itr.next();
+			d1[i] = e.get();
+			i++;
+		}
+
+		System.out.println(d1.length);
+
+		double[] d2 = new double[3];
+		Iterator<VectorEntry> itr1 = v1.iterator();
+		int k = 0;
+		while (itr1.hasNext()) {
+			VectorEntry e = itr1.next();
+			d2[k] = e.get();
+			k++;
+		}
+
+	}
+
+	public void testCernLA() {
+		DenseDoubleMatrix1D x = new DenseDoubleMatrix1D(new double[] { 1, 2, 3 });
+		DenseDoubleMatrix1D y = new DenseDoubleMatrix1D(new double[] { 5, 7, 0, 11, 1, 9 });
+		DenseDoubleMatrix2D c = new DenseDoubleMatrix2D(x.size(), y.size());
+
+		System.out.println(x + "\t" + y);
+		Algebra a = new Algebra();
+		Mean m = new Mean();
+		double[] mean = new double[x.size()];
+		Arrays.fill(mean, (-m.evaluate(x.toArray())));
+		DenseDoubleMatrix1D ux = new DenseDoubleMatrix1D(mean);
+		x.assign(MatrixHelper.addVectors(x, ux));
+
+		double[] meany = new double[y.size()];
+		Arrays.fill(meany, (-m.evaluate(y.toArray())));
+		DenseDoubleMatrix1D uy = new DenseDoubleMatrix1D(meany);
+		y.assign(MatrixHelper.addVectors(y, uy));
+
+		System.out.println(x + "\t" + y);
+
+		a.multOuter(x, y, c);
+		System.out.println(c);
+	}
+
+	public void testSer() throws ClassNotFoundException {
+		try {
+			ObjectInputStream ois = new ObjectInputStream(new FileInputStream(
+					"/Users/alt-sameerk/Documents/edinburgh/exp_2016_1/featurematrices/CC/covM.ser"));
+			cern.colt.matrix.tdouble.impl.SparseDoubleMatrix2D mat = (cern.colt.matrix.tdouble.impl.SparseDoubleMatrix2D) ois
+					.readObject();
+			System.out.println("CERN++ " + mat.get(0, 0));
+			ois.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
