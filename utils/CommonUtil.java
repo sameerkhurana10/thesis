@@ -76,6 +76,7 @@ import interfaces.InsideFeature;
 import interfaces.OutsideFeature;
 import jeigen.DenseMatrix;
 import jeigen.SparseMatrixLil;
+import main.FeatureDictionary;
 import no.uib.cipr.matrix.DenseVector;
 import no.uib.cipr.matrix.MatrixEntry;
 import no.uib.cipr.matrix.Vector;
@@ -1545,29 +1546,52 @@ public class CommonUtil extends VSMThesis {
 		return x;
 	}
 
-	public static void writeCovarMatrix(SparseMatrixLil psiTPsi, String nonTerminal) {
-		id++;
-		String filePath = "/afs/inf.ed.ac.uk/group/project/vsm.restored/covars/" + nonTerminal + "/" + "covar_" + id
-				+ ".txt";
-		File file = new File(filePath);
-		if (!file.exists()) {
-			file.getParentFile().mkdirs();
-		}
+	public static void writeSparseMatrixToDisk(SparseMatrixLil sparseMatrix, String matrixTextFile, String nonTerminal,
+			org.apache.log4j.Logger logger) {
 
-		PrintWriter writer = null;
-
+		BufferedWriter bw = null;
+		// BufferedWriter bwl = null;
 		try {
-			writer = new PrintWriter(file);
-			for (int i = 0; i < psiTPsi.getSize(); i++) {
-				String s = psiTPsi.getRowIdx(i) + " " + psiTPsi.getColIdx(i) + " " + psiTPsi.getValue(i);
-				writer.println(s);
 
+			for (int i = 0; i < sparseMatrix.getSize(); i++) {
+
+				bw = new BufferedWriter(new FileWriter(matrixTextFile, true));
+				// bwl = new BufferedWriter(new FileWriter(matrixTextFile +
+				// ".log", true));
+				// +1 for matlab
+				int rowidx = sparseMatrix.getRowIdx(i) + 1;
+				int colidx = sparseMatrix.getColIdx(i) + 1;
+				double value = sparseMatrix.getValue(i);
+				bw.write(Integer.toString(rowidx) + "\t" + Integer.toString(colidx) + "\t" + Double.toString(value)
+						+ "\n");
+				// bwl.write(Integer.toString(rowidx) + "\t" +
+				// Integer.toString(colidx) + "\t"
+				// + Double.toString(Math.log(value)) + "\n");
+				bw.flush();
+				bw.close();
+				// bwl.flush();
+				// bwl.close();
 			}
 
-		} catch (FileNotFoundException e) {
-			System.out.println("***Exception while writing to the file***" + e);
-		} finally {
-			writer.close();
+			// The last line is added to tell Octave about the matrix
+			// dimensions: Very important this
+			bw = new BufferedWriter(new FileWriter(matrixTextFile, true));
+			bw.write(Integer.toString(sparseMatrix.rows) + "\t" + Integer.toString(sparseMatrix.cols) + "\t"
+					+ Double.toString(0.0));
+			//
+			// bwl = new BufferedWriter(new FileWriter(matrixTextFile + ".log",
+			// true));
+			// bwl.write(Integer.toString(sparseMatrix.rows) + "\t" +
+			// Integer.toString(sparseMatrix.cols) + "\t"
+			// + Double.toString(0.0));
+
+			bw.flush();
+			bw.close();
+			// bwl.flush();
+			// bwl.close();
+
+		} catch (IOException e) {
+			logger.error("Error while writing the sparse matrix to disk: " + e);
 		}
 
 	}
@@ -2964,20 +2988,30 @@ public class CommonUtil extends VSMThesis {
 		logger.info("Deserealizing the vectors from the file: " + vectorsPath);
 		LinkedList<FeatureVector> featureVectors = new LinkedList<FeatureVector>();
 		try {
-			ObjectInputStream ois = new ObjectInputStream(new FileInputStream(vectorsPath));
+			// The check is to ensure that whether .bz2 file is present or the
+			// not
+			ObjectInputStream ois = null;
+			if (!new File(vectorsPath).exists()) {
+				ois = new ObjectInputStream(BLLIPCorpusReader.getInputStream(vectorsPath + ".bz2"));
+			} else {
+				ois = new ObjectInputStream(new FileInputStream(vectorsPath));
+			}
+
 			featureVectors = (LinkedList<FeatureVector>) ois.readObject();
 			ois.close();
 		} catch (IOException e) {
 			logger.error("IO Exception while reading the Object file " + e);
 		} catch (ClassNotFoundException e) {
 			logger.error("CLASSNOTFOUND " + e);
+		} catch (CompressorException e) {
+			logger.error("CompressorException " + e);
 		}
 		return featureVectors;
 	}
 
 	public static void formFeatureMatrix(LinkedList<FeatureVector> outsideVectors, SparseMatrixLil Psi,
 			org.apache.log4j.Logger logger) {
-		logger.info("Forming the feature Matrix of dimensions " + Psi.shape());
+		logger.info("Forming the feature Matrix of dimensions " + Psi.rows + " x " + Psi.cols);
 		int col = 0;
 		for (FeatureVector bean : outsideVectors) {
 			SparseVector vec = bean.getFeatureVec();
@@ -2998,6 +3032,12 @@ public class CommonUtil extends VSMThesis {
 		SparseDoubleMatrix2D PsiCern = CommonUtil
 				.createSparseMatrixCOLT(CommonUtil.createSparseMatrixMTJFromJeigen(featureMatrix));
 		try {
+
+			if (new File(matrixStoragePath).exists()) {
+				logger.info("The serialized feature matrix already exists and hence doing nothing");
+				return;
+			}
+
 			ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(matrixStoragePath));
 			oos.writeObject(PsiCern);
 			oos.flush();
@@ -3008,31 +3048,48 @@ public class CommonUtil extends VSMThesis {
 
 	}
 
-	public static void writeFeatureMatrices(SparseMatrixLil Psi, String matrixStoragePath,
+	public static void writeFeatureMatrices(SparseMatrixLil matrixS, String matrixStoragePath,
 			org.apache.log4j.Logger logger) {
 
 		logger.info("Total memory being used: " + Runtime.getRuntime().totalMemory());
 		logger.info("Writing sparse matrices to file");
 		try {
 			BufferedWriter bw = null;
-			int size = Psi.getSize();
+			BufferedWriter bwl = null;
+			int size = matrixS.getSize();
 			for (int i = 0; i < size; i++) {
 				bw = new BufferedWriter(new FileWriter(matrixStoragePath, true));
+				bwl = new BufferedWriter(new FileWriter(matrixStoragePath + ".log", true));
 				// +1 for matlab
-				int rowidx = Psi.getRowIdx(i) + 1;
-				int colidx = Psi.getColIdx(i) + 1;
-				double value = Psi.getValue(i);
+				int rowidx = matrixS.getRowIdx(i) + 1;
+				int colidx = matrixS.getColIdx(i) + 1;
+				double value = matrixS.getValue(i);
 				bw.write(Integer.toString(rowidx) + "\t" + Integer.toString(colidx) + "\t" + Double.toString(value)
 						+ "\n");
+				// logarithm of the basis values in the co-variance matrix, just
+				// changing the scale. Also provides magnitude normalization (so
+				// that no one basis value is very large)
+				// TODO put a flag for log tranform here
+				bwl.write(Integer.toString(rowidx) + "\t" + Integer.toString(colidx) + "\t"
+						+ Double.toString(Math.log(value)) + "\n");
 				bw.flush();
 				bw.close();
+				bwl.flush();
+				bwl.close();
 			}
 
-			// The last line is added to tell Matlab about the matrix dimensions
+			// The last line is added to tell Octave about the matrix
+			// dimensions: Very important this
 			bw = new BufferedWriter(new FileWriter(matrixStoragePath, true));
-			bw.write(Integer.toString(Psi.rows) + "\t" + Integer.toString(Psi.cols) + "\t" + Double.toString(0.0));
+			bw.write(Integer.toString(matrixS.rows) + "\t" + Integer.toString(matrixS.cols) + "\t"
+					+ Double.toString(0.0));
+			bwl = new BufferedWriter(new FileWriter(matrixStoragePath + ".log", true));
+			bwl.write(Integer.toString(matrixS.rows) + "\t" + Integer.toString(matrixS.cols) + "\t"
+					+ Double.toString(0.0));
 			bw.flush();
 			bw.close();
+			bwl.flush();
+			bwl.close();
 
 		} catch (IOException e) {
 			logger.error("IOExcpeiton while wirting the feature matrices to the disk" + e);
@@ -3113,7 +3170,7 @@ public class CommonUtil extends VSMThesis {
 				.createSparseMatrixCOLT(CommonUtil.createSparseMatrixMTJFromJeigen(covMatrix));
 		try {
 			ObjectOutputStream os = new ObjectOutputStream(
-					new FileOutputStream(matrixStorePath + "/" + nonTerminal + "/covM.ser"));
+					new FileOutputStream(matrixStorePath + "/" + nonTerminal.replaceAll("-", "") + "/covM.ser"));
 			os.writeObject(coMatrix2d);
 			os.flush();
 			os.close();
@@ -3160,6 +3217,221 @@ public class CommonUtil extends VSMThesis {
 
 		System.out.println("==Created Sparse Matrix==");
 		return x_omega;
+	}
+
+	public DenseDoubleMatrix2D getOmegaMatrix(SparseDoubleMatrix2D covM, int m) {
+		Random r = new Random();
+		DenseDoubleMatrix2D Omega = new DenseDoubleMatrix2D(covM.columns(), m + 20);
+		for (int i = 0; i < covM.columns(); i++) {
+			for (int j = 0; j < m + 20; j++)
+				Omega.set(i, j, r.nextGaussian());
+		}
+		return Omega;
+	}
+
+	public static void dictionaryInit(Alphabet[] alphabets) {
+		for (Alphabet a : alphabets) {
+			if (a != null) {
+				a.allowGrowth();
+				a.turnOnCounts();
+			} else {
+				System.err.println("Alphabet is null");
+				System.exit(-1);
+			}
+		}
+
+	}
+
+	public static void createDictionaryFromFile(String wordListFile, Alphabet wordL) {
+		try {
+			System.out.println(wordListFile);
+			BufferedReader reader = new BufferedReader(new FileReader(wordListFile));
+			String word = null;
+			while ((word = reader.readLine()) != null) {
+				wordL.lookupIndex(word.toLowerCase());
+			}
+			reader.close();
+		} catch (FileNotFoundException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+
+	public static void createWordDictionary(Alphabet word, String treesFile, org.apache.log4j.Logger logger) {
+		PennTreeReader treeParser = null;
+		try {
+			treeParser = CommonUtil.getTreeReaderBz(treesFile);
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		long k = 0;
+		while (treeParser.hasNext()) {
+			k++;
+			Tree<String> tree = FeatureDictionary.getNormalizedTree(treeParser.next());
+			List<String> words = tree.getTerminalYield();
+			for (String wordS : words) {
+				if (wordS.matches("[0-9]")) {
+					wordS = "<num>";
+				}
+				word.lookupIndex(wordS.toLowerCase().trim());
+			}
+
+			if (k == 1000000) {
+				logger.info("A million trees parsed");
+				k = 0;
+			}
+		}
+
+	}
+
+	public static void filterWordDictionary(Alphabet word, Alphabet wordF, String thresh) {
+		Object[] words = word.map.keys();
+		wordF.lookupIndex("NOTFREQUENT");
+		for (Object wordO : words) {
+			String wordS = (String) wordO;
+			int wordCount = word.countMap.get(wordS);
+			if (wordCount > Integer.parseInt(thresh)) {
+				wordF.lookupIndex(wordS);
+				wordF.countMap.put(wordS, wordCount);
+			} else {
+				wordF.countMap.put("NOTFREQUENT", wordF.getCount("NOTFREQUENT") + wordCount);
+			}
+		}
+	}
+
+	public static void stopDictionaryGrowth(Alphabet[] alphabets) {
+		for (Alphabet a : alphabets) {
+			a.stopGrowth();
+		}
+
+	}
+
+	public static void createGarbageWordDictionary(Alphabet wordF, Alphabet wordG, Alphabet wordL) {
+		Object[] wordsF = wordF.map.keys();
+		for (Object o : wordsF) {
+			String word = (String) o;
+			if (wordL.lookupIndex(word) == -1) {
+				wordG.lookupIndex(word);
+				wordG.countMap.put(word, wordF.getCount(word));
+			}
+		}
+
+	}
+
+	public static void serializeDictionaries(Alphabet[] alphabets, String[] names, String storePath) {
+		for (int i = 0; i < alphabets.length; i++) {
+			Alphabet a = alphabets[i];
+			String name = names[i];
+			try {
+				ObjectOutputStream os = new ObjectOutputStream(new FileOutputStream(storePath + "/" + name + ".ser"));
+				os.writeObject(a);
+				os.flush();
+				os.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}
+
+	}
+
+	public static void writeDictionariesToDisk(Alphabet[] alphabets, String[] names, String storePath) {
+
+		for (int i = 0; i < alphabets.length; i++) {
+			Alphabet a = alphabets[i];
+			String name = names[i];
+			try {
+				BufferedWriter bw = null;
+				for (Object o : a.map.keys()) {
+					bw = new BufferedWriter(new FileWriter(storePath + "/" + name + ".txt", true));
+					bw.write((String) o + "\t" + a.countMap.get(o) + "\n");
+					bw.flush();
+					bw.close();
+				}
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+
+		}
+
+	}
+
+	public static void createAlphanumericDictionary(Alphabet word, Alphabet alNumeric) {
+		Object[] objs = word.map.keys();
+		for (Object o : objs) {
+			String wordS = (String) o;
+			if (!StringUtils.isAlphanumeric(wordS)) {
+				alNumeric.lookupIndex(wordS);
+				alNumeric.countMap.put(wordS, word.countMap.get(wordS));
+			}
+		}
+
+	}
+
+	public static void writeMatrixToDisk(String objectFile, String textFileStoragePath, String name, String nonTerminal,
+			org.apache.log4j.Logger logger) {
+
+		try {
+			ObjectInputStream ois = new ObjectInputStream(BLLIPCorpusReader.getInputStream(objectFile));
+			SparseDoubleMatrix2D covCern = (SparseDoubleMatrix2D) ois.readObject();
+			ois.close();
+			logger.info("Converting from colt to jeigen for " + nonTerminal);
+			SparseMatrixLil cov = new SparseMatrixLil(covCern.rows(), covCern.columns());
+			for (int i = 0; i < covCern.rows(); i++) {
+				for (int k = 0; k < covCern.columns(); k++) {
+					double val = covCern.get(i, k);
+					// logrithm of the values of the covariance matrix? the
+					// values are too small for some matrices
+					if (val > 0.0) {
+						cov.append(i, k, val);
+					}
+				}
+			}
+			String matrixStoragePath = textFileStoragePath + "/" + nonTerminal + "/" + name + ".txt";
+			File file = new File(matrixStoragePath);
+			if (!file.getParentFile().exists()) {
+				file.getParentFile().mkdirs();
+			} else {
+				logger.info("Covariance matrices for the non-terminal: " + nonTerminal
+						+ " already exists and hence exiting");
+				System.exit(0);
+			}
+			CommonUtil.writeFeatureMatrices(cov, matrixStoragePath, logger);
+
+		} catch (IOException e) {
+			logger.error("IOException: " + e + " non-terminal " + nonTerminal);
+		} catch (ClassNotFoundException e) {
+			logger.error("ClassNotFoundException " + e + " non-term " + nonTerminal);
+		} catch (CompressorException e) {
+			logger.error("CompressorException " + e + " non-term " + nonTerminal);
+		}
+
+	}
+
+	public static void writeDoubleArrayToFile(double[][] matrix, int rowDimension, int columnDimension,
+			String storePath) {
+
+		BufferedWriter bw = null;
+		try {
+			for (int i = 0; i < rowDimension; i++) {
+				bw = new BufferedWriter(new FileWriter(storePath));
+				for (int k = 0; k < columnDimension; k++) {
+					double value = matrix[i][k];
+					bw.write(Double.toString(value) + "\t");
+				}
+				bw.write("\n");
+				bw.flush();
+				bw.close();
+			}
+		} catch (IOException e) {
+
+		}
+
 	}
 
 }

@@ -17,19 +17,24 @@ public class InsideFeatureMatrix implements Runnable {
 	SparseMatrixLil Phi;
 	Logger logger;
 	int d;
-	int M;
-	String nonTerminal;
 
-	public InsideFeatureMatrix(String nonTerminal, String matrixStoragePath, String vectorsPath, int M, Logger logger) {
+	String nonTerminal;
+	String serialize;
+	String writeToDisk;
+
+	public InsideFeatureMatrix(String nonTerminal, String matrixStoragePath, String vectorsPath, String serialize,
+			String writeToDisk, Logger logger) {
 		this.nonTerminal = nonTerminal;
 		this.matrixStoragePath = matrixStoragePath;
 		this.logger = logger;
-		this.M = M;
+
 		this.matrixStoragePath = matrixStoragePath + "/" + nonTerminal.replaceAll("-", "");
 		File matrixDirec = new File(this.matrixStoragePath);
 		if (!matrixDirec.exists())
 			matrixDirec.mkdirs();
 		this.vectorsPath = vectorsPath + "/" + nonTerminal.replaceAll("-", "") + "/inside.ser";
+		this.serialize = serialize;
+		this.writeToDisk = writeToDisk;
 	}
 
 	@Override
@@ -40,14 +45,21 @@ public class InsideFeatureMatrix implements Runnable {
 		insideVectors = CommonUtil.getVectors(vectorsPath, logger);
 
 		d = insideVectors.get(0).getFeatureVec().size();
+		int M = insideVectors.size();
 		Phi = new SparseMatrixLil(d, M);
 
 		logger.info("Forming the Matrix (d x M): " + Phi.rows + " x " + Phi.cols);
 		CommonUtil.formFeatureMatrix(insideVectors, Phi, logger);
 
-		logger.info("Serializing the Inside Feature Matrix at: " + matrixStoragePath);
-		CommonUtil.serializeFeatureMatrix(Phi, matrixStoragePath + "/ifm.ser", logger);
+		if (serialize.equalsIgnoreCase("yes")) {
+			logger.info("Serializing the Inside Feature Matrix at: " + matrixStoragePath);
+			CommonUtil.serializeFeatureMatrix(Phi, matrixStoragePath + "/ifm.ser", logger);
+		}
 
+		if (writeToDisk.equalsIgnoreCase("yes")) {
+			logger.info("Writing the feature matrix to a text file");
+			CommonUtil.writeSparseMatrixToDisk(Phi, matrixStoragePath + "/ifm.txt", nonTerminal, logger);
+		}
 	}
 
 	public SparseMatrixLil getPhi() {

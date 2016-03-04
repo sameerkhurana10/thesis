@@ -39,6 +39,8 @@ public class NodeSamplesCollection {
 	private static LinkedList<OutsideFeature> outsideFeatures;
 	private static int k;
 	private static String matrixStorePath;
+	private static String serializeMatrix;
+	private static String writeToDisk;
 
 	final static Logger logger = Logger.getLogger(NodeSamplesCollection.class);
 
@@ -51,6 +53,8 @@ public class NodeSamplesCollection {
 		options.addOption("vecpath", true, "the path where the feature vectors are to be stored on the disk");
 		options.addOption("k", true, "the smotthness coefficient to be used in the scaling factor formula");
 		options.addOption("matrix", true, "path where matrix needs to be stored");
+		options.addOption("serializeMatrix", true, "Yes/No Serialize the matrix or not");
+		options.addOption("writeToDisk", true, "Yes/No Write feature matrices to disk or not");
 
 		insideFeatures = CommonUtil.getInsideFeatureObjects();
 		outsideFeatures = CommonUtil.getOutsideFeatureObjects();
@@ -77,9 +81,9 @@ public class NodeSamplesCollection {
 		}
 
 		OutsideFeatureMatrix outsideMatrixThread = new OutsideFeatureMatrix(nonTerminal, matrixStorePath,
-				featureVectorsStoragePath, M, logger);
+				featureVectorsStoragePath, serializeMatrix, writeToDisk, logger);
 		InsideFeatureMatrix insideMatrixThread = new InsideFeatureMatrix(nonTerminal, matrixStorePath,
-				featureVectorsStoragePath, M, logger);
+				featureVectorsStoragePath, serializeMatrix, writeToDisk, logger);
 
 		Thread outsideFeatureMatrix = new Thread(outsideMatrixThread);
 		Thread insideFeatureMatrix = new Thread(insideMatrixThread);
@@ -110,7 +114,8 @@ public class NodeSamplesCollection {
 		try {
 			cmd = parser.parse(options, args);
 			if (cmd.hasOption("nonT") && cmd.hasOption("trees") && cmd.hasOption("dictionaries") && cmd.hasOption("M")
-					&& cmd.hasOption("vecpath") && cmd.hasOption("k") && cmd.hasOption("matrix")) {
+					&& cmd.hasOption("vecpath") && cmd.hasOption("k") && cmd.hasOption("matrix")
+					&& cmd.hasOption("serializeMatrix") && cmd.hasOption("writeToDisk")) {
 				nonTerminal = cmd.getOptionValue("nonT");
 				treeFile = cmd.getOptionValue("trees");
 				featureDictionaries = cmd.getOptionValue("dictionaries");
@@ -118,6 +123,8 @@ public class NodeSamplesCollection {
 				featureVectorsStoragePath = cmd.getOptionValue("vecpath");
 				k = Integer.parseInt(cmd.getOptionValue("k"));
 				matrixStorePath = cmd.getOptionValue("matrix");
+				serializeMatrix = cmd.getOptionValue("serializeMatrix");
+				writeToDisk = cmd.getOptionValue("writeToDisk");
 			} else {
 				help();
 			}

@@ -1,13 +1,16 @@
 package tests;
 
+import java.io.BufferedWriter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.Arrays;
 import java.util.Iterator;
 
+import org.apache.commons.compress.compressors.CompressorException;
 import org.apache.commons.math3.stat.correlation.Covariance;
 import org.apache.commons.math3.stat.descriptive.moment.Mean;
 
@@ -25,6 +28,7 @@ import jeigen.SparseMatrixLil;
 import junit.framework.TestCase;
 import no.uib.cipr.matrix.VectorEntry;
 import no.uib.cipr.matrix.sparse.SparseVector;
+import utils.BLLIPCorpusReader;
 import utils.CommonUtil;
 import utils.MatrixHelper;
 import utils.VSMSparseVector;
@@ -163,15 +167,23 @@ public class TestCode extends TestCase {
 	public void testSer() throws ClassNotFoundException {
 		try {
 			ObjectInputStream ois = new ObjectInputStream(new FileInputStream(
-					"/Users/alt-sameerk/Documents/edinburgh/exp_2016_1/featurematrices/CC/covM.ser"));
+					"/Users/alt-sameerk/Documents/edinburgh/exp_2016_1/featurematrices/RRB/covM.ser"));
 			cern.colt.matrix.tdouble.impl.SparseDoubleMatrix2D mat = (cern.colt.matrix.tdouble.impl.SparseDoubleMatrix2D) ois
 					.readObject();
-			System.out.println("CERN++ " + mat.get(0, 0));
+			// System.out.println("CERN++ " + mat);
 			ois.close();
+			BufferedWriter bw = new BufferedWriter(new FileWriter(System.getProperty("user.dir") + "/colt", true));
+			bw.write(mat.toString());
+			bw.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+
+	public void testNorm() {
+		String num = "9,700-circulation";
+		System.out.println("9,700-circulation " + num.contains("[0-9]"));
 	}
 
 }
